@@ -1,5 +1,6 @@
-package com.projetoapi.auth_api.domain;
+package com.projetoapi.auth_api.repository;
 
+import com.projetoapi.auth_api.domain.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

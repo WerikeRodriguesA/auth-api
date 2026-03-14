@@ -6,6 +6,8 @@ import com.projetoapi.auth_api.dto.request.LoginRequest;
 import com.projetoapi.auth_api.dto.request.RefreshRequest;
 import com.projetoapi.auth_api.dto.request.RegisterRequest;
 import com.projetoapi.auth_api.dto.response.AuthResponse;
+import com.projetoapi.auth_api.exception.InvalidTokenException;
+import com.projetoapi.auth_api.exception.UserAlreadyExistsException;
 import com.projetoapi.auth_api.repository.RefreshTokenRepository;
 import com.projetoapi.auth_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +39,7 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email já cadastrado");
+            throw new UserAlreadyExistsException("Email já cadastrado");
         }
 
         User user = User.builder()
@@ -87,14 +89,14 @@ public class AuthService {
     @Transactional
     public AuthResponse refresh(RefreshRequest request) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
-                .orElseThrow(() -> new RuntimeException("Refresh token não encontrado"));
+                .orElseThrow(() -> new InvalidTokenException("Refresh token não encontrado"));
 
         if (refreshToken.isRevoked()) {
-            throw new RuntimeException("Refresh token revogado");
+            throw new InvalidTokenException("Refresh token revogado");
         }
 
         if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Refresh token expirado");
+            throw new InvalidTokenException("Refresh token expirado");
         }
 
         // rotação — revoga o token atual e gera um novo

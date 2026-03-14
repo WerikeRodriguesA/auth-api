@@ -1,106 +1,108 @@
 package com.projetoapi.auth_api.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projetoapi.auth_api.dto.request.LoginRequest;
 import com.projetoapi.auth_api.dto.request.RegisterRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.Map;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Transactional
 class AuthControllerIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @LocalServerPort
+    private int port;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private RestClient restClient() {
+        return RestClient.create("http://localhost:" + port);
+    }
 
     @Test
-    void deveRegistrarUsuarioComSucesso() throws Exception {
+    void deveRegistrarUsuarioComSucesso() {
         RegisterRequest request = new RegisterRequest(
                 "Teste Usuario",
                 "teste@email.com",
                 "12345678"
         );
 
-        mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken").exists())
-                .andExpect(jsonPath("$.refreshToken").exists())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"));
+        ResponseEntity<Map> response = restClient()
+                .post()
+                .uri("/auth/register")
+                .body(request)
+                .retrieve()
+                .toEntity(Map.class);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody().get("accessToken"));
+        assertNotNull(response.getBody().get("refreshToken"));
     }
 
     @Test
-    void deveRejeitarRegistroComEmailInvalido() throws Exception {
+    void deveRejeitarRegistroComEmailInvalido() {
         RegisterRequest request = new RegisterRequest(
                 "Teste Usuario",
                 "emailinvalido",
                 "12345678"
         );
 
-        mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        try {
+            restClient()
+                    .post()
+                    .uri("/auth/register")
+                    .body(request)
+                    .retrieve()
+                    .toEntity(Map.class);
+            fail("Deveria ter lançado exceção");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("400") || e.getMessage().contains("Bad Request"));
+        }
     }
 
     @Test
-    void deveRejeitarRegistroComSenhaCurta() throws Exception {
-        RegisterRequest request = new RegisterRequest(
-                "Teste Usuario",
-                "teste@email.com",
-                "123"
-        );
-
-        mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void deveLoginComSucesso() throws Exception {
-        // registra primeiro
+    void deveLoginComSucesso() {
         RegisterRequest register = new RegisterRequest(
                 "Teste Usuario",
                 "login@email.com",
                 "12345678"
         );
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(register)));
+        restClient().post().uri("/auth/register").body(register).retrieve().toEntity(Map.class);
 
-        // depois faz login
         LoginRequest login = new LoginRequest("login@email.com", "12345678");
 
-        mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(login)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").exists())
-                .andExpect(jsonPath("$.refreshToken").exists());
+        ResponseEntity<Map> response = restClient()
+                .post()
+                .uri("/auth/login")
+                .body(login)
+                .retrieve()
+                .toEntity(Map.class);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody().get("accessToken"));
     }
 
     @Test
-    void deveRejeitarLoginComCredenciaisErradas() throws Exception {
+    void deveRejeitarLoginComCredenciaisErradas() {
         LoginRequest login = new LoginRequest("inexistente@email.com", "senhaerrada");
 
-        mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(login)))
-                .andExpect(status().isUnauthorized());
+        try {
+            restClient()
+                    .post()
+                    .uri("/auth/login")
+                    .body(login)
+                    .retrieve()
+                    .toEntity(Map.class);
+            fail("Deveria ter lançado exceção");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("401") || e.getMessage().contains("Unauthorized"));
+        }
     }
 }

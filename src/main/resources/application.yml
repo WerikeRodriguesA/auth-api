@@ -4,8 +4,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/authdb
-    username: admin
-    password: admin123
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
@@ -20,7 +20,7 @@ spring:
     locations: classpath:db/migration
 
 jwt:
-  secret: minha-chave-secreta-super-segura-para-desenvolvimento-local-2024
+  secret: ${JWT_SECRET}
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
 
